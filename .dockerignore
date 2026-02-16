@@ -1,0 +1,15 @@
+node_modules
+npm-debug.log*
+.nyc_output
+coverage
+*.lcov
+.git
+.gitignore
+.dockerignore
+docs
+test
+debug/Post*.sh
+*.md
+LICENSE
+.env
+.env.*
