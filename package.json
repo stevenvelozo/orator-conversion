@@ -1,6 +1,6 @@
 {
 	"name": "orator-conversion",
-	"version": "1.0.1",
+	"version": "1.0.2",
 	"description": "File format conversion endpoints for Orator service servers.",
 	"main": "source/Orator-File-Translation.js",
 	"scripts": {
@@ -41,7 +41,7 @@
 	},
 	"homepage": "https://github.com/stevenvelozo/orator-conversion#readme",
 	"dependencies": {
-		"fable-serviceproviderbase": "^3.0.18",
+		"fable-serviceproviderbase": "^3.0.19",
 		"sharp": "^0.34.5"
 	},
 	"devDependencies": {
