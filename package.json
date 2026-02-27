@@ -4,10 +4,10 @@
 	"description": "File format conversion endpoints for Orator service servers.",
 	"main": "source/Orator-File-Translation.js",
 	"scripts": {
-		"test": "npx mocha -u tdd --exit -R spec",
+		"test": "npx quack test",
 		"coverage": "npx quack coverage",
 		"start": "node debug/Harness.js",
-		"tests": "npx mocha -u tdd --exit -R spec --grep",
+		"tests": "npx quack test -g",
 		"docker-build": "docker build -t retold/orator-conversion:local .",
 		"docker-run": "docker run -p 8765:8765 --name orator-conversion retold/orator-conversion:local",
 		"docker-shell": "docker exec -it orator-conversion /bin/bash"
