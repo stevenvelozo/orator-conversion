@@ -8,6 +8,9 @@ const libOS = require('os');
 
 const libEndpointImageJpgToPng = require('./endpoints/Endpoint-Image-JpgToPng.js');
 const libEndpointImagePngToJpg = require('./endpoints/Endpoint-Image-PngToJpg.js');
+const libEndpointImageResize = require('./endpoints/Endpoint-Image-Resize.js');
+const libEndpointImageRotate = require('./endpoints/Endpoint-Image-Rotate.js');
+const libEndpointImageConvert = require('./endpoints/Endpoint-Image-Convert.js');
 const libEndpointPdfPageToPng = require('./endpoints/Endpoint-Pdf-PageToPng.js');
 const libEndpointPdfPageToJpg = require('./endpoints/Endpoint-Pdf-PageToJpg.js');
 const libEndpointPdfPageToPngSized = require('./endpoints/Endpoint-Pdf-PageToPng-Sized.js');
@@ -89,6 +92,9 @@ class OratorFileTranslation extends libFableServiceProviderBase
 		// Register endpoint service types with fable
 		this.fable.addServiceTypeIfNotExists('OratorFileTranslationEndpoint-ImageJpgToPng', libEndpointImageJpgToPng);
 		this.fable.addServiceTypeIfNotExists('OratorFileTranslationEndpoint-ImagePngToJpg', libEndpointImagePngToJpg);
+		this.fable.addServiceTypeIfNotExists('OratorFileTranslationEndpoint-ImageResize', libEndpointImageResize);
+		this.fable.addServiceTypeIfNotExists('OratorFileTranslationEndpoint-ImageRotate', libEndpointImageRotate);
+		this.fable.addServiceTypeIfNotExists('OratorFileTranslationEndpoint-ImageConvert', libEndpointImageConvert);
 		this.fable.addServiceTypeIfNotExists('OratorFileTranslationEndpoint-PdfPageToPng', libEndpointPdfPageToPng);
 		this.fable.addServiceTypeIfNotExists('OratorFileTranslationEndpoint-PdfPageToJpg', libEndpointPdfPageToJpg);
 		this.fable.addServiceTypeIfNotExists('OratorFileTranslationEndpoint-PdfPageToPngSized', libEndpointPdfPageToPngSized);
@@ -100,6 +106,9 @@ class OratorFileTranslation extends libFableServiceProviderBase
 			[
 				'OratorFileTranslationEndpoint-ImageJpgToPng',
 				'OratorFileTranslationEndpoint-ImagePngToJpg',
+				'OratorFileTranslationEndpoint-ImageResize',
+				'OratorFileTranslationEndpoint-ImageRotate',
+				'OratorFileTranslationEndpoint-ImageConvert',
 				'OratorFileTranslationEndpoint-PdfPageToPng',
 				'OratorFileTranslationEndpoint-PdfPageToJpg',
 				'OratorFileTranslationEndpoint-PdfPageToPngSized',

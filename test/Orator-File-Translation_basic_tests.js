@@ -79,6 +79,12 @@ suite
 						Expect(tmpFileTranslation.converters['image/jpg-to-png']).to.be.a('function');
 						Expect(tmpFileTranslation.converters).to.have.a.property('image/png-to-jpg');
 						Expect(tmpFileTranslation.converters['image/png-to-jpg']).to.be.a('function');
+						Expect(tmpFileTranslation.converters).to.have.a.property('image/resize');
+						Expect(tmpFileTranslation.converters['image/resize']).to.be.a('function');
+						Expect(tmpFileTranslation.converters).to.have.a.property('image/rotate/:Angle');
+						Expect(tmpFileTranslation.converters['image/rotate/:Angle']).to.be.a('function');
+						Expect(tmpFileTranslation.converters).to.have.a.property('image/convert/:Format');
+						Expect(tmpFileTranslation.converters['image/convert/:Format']).to.be.a('function');
 						Expect(tmpFileTranslation.converters).to.have.a.property('pdf-to-page-png/:Page');
 						Expect(tmpFileTranslation.converters['pdf-to-page-png/:Page']).to.be.a('function');
 						Expect(tmpFileTranslation.converters).to.have.a.property('pdf-to-page-jpg/:Page');
@@ -270,13 +276,13 @@ suite
 						let tmpOrator = tmpFable.serviceManager.instantiateServiceProvider('Orator', {});
 						let tmpFileTranslation = tmpFable.serviceManager.instantiateServiceProvider('OratorFileTranslation', {});
 
-						// Should have 6 default converters (jpg-to-png, png-to-jpg, pdf-to-page-png, pdf-to-page-jpg, pdf-to-page-png sized, pdf-to-page-jpg sized)
-						Expect(Object.keys(tmpFileTranslation.converters).length).to.equal(6);
+						// Should have 9 default converters (jpg-to-png, png-to-jpg, resize, rotate, convert, pdf-to-page-png, pdf-to-page-jpg, pdf-to-page-png sized, pdf-to-page-jpg sized)
+						Expect(Object.keys(tmpFileTranslation.converters).length).to.equal(9);
 
 						tmpFileTranslation.addConverter('document/txt-to-html', (pInput, pReq, fCb) => { fCb(null, pInput, 'text/html'); });
 
-						// Should now have 7
-						Expect(Object.keys(tmpFileTranslation.converters).length).to.equal(7);
+						// Should now have 10
+						Expect(Object.keys(tmpFileTranslation.converters).length).to.equal(10);
 
 						return fDone();
 					}

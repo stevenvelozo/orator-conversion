@@ -642,6 +642,154 @@ suite
 
 		suite
 		(
+			'Image Resize Endpoint',
+			() =>
+			{
+				test
+				(
+					'should resize an image via the resize endpoint',
+					(fDone) =>
+					{
+						createTestJpegBuffer(
+							(pError, pJpegBuffer) =>
+							{
+								Expect(pError).to.equal(null);
+
+								createStartedHarness(null, null,
+									(pHarness) =>
+									{
+										postBinaryToEndpoint(pHarness.port, '/conversion/1.0/image/resize?Width=5&Height=5', pJpegBuffer,
+											(pPostError, pResponse, pBody) =>
+											{
+												Expect(pPostError).to.equal(null);
+												Expect(pResponse.statusCode).to.equal(200);
+												Expect(pBody).to.be.an.instanceOf(Buffer);
+												Expect(pBody.length).to.be.greaterThan(0);
+
+												libSharp(pBody).metadata().then(
+													(pMetadata) =>
+													{
+														Expect(pMetadata.width).to.equal(5);
+														Expect(pMetadata.height).to.equal(5);
+														pHarness.orator.stopService(fDone);
+													}).catch(
+													(pMetaError) =>
+													{
+														pHarness.orator.stopService(() => { fDone(pMetaError); });
+													});
+											});
+									});
+							});
+					}
+				);
+			}
+		);
+
+		suite
+		(
+			'Image Rotate Endpoint',
+			() =>
+			{
+				test
+				(
+					'should rotate an image 90 degrees via the rotate endpoint',
+					(fDone) =>
+					{
+						createTestJpegBuffer(
+							(pError, pJpegBuffer) =>
+							{
+								Expect(pError).to.equal(null);
+
+								createStartedHarness(null, null,
+									(pHarness) =>
+									{
+										postBinaryToEndpoint(pHarness.port, '/conversion/1.0/image/rotate/90', pJpegBuffer,
+											(pPostError, pResponse, pBody) =>
+											{
+												Expect(pPostError).to.equal(null);
+												Expect(pResponse.statusCode).to.equal(200);
+												Expect(pBody).to.be.an.instanceOf(Buffer);
+												Expect(pBody.length).to.be.greaterThan(0);
+
+												pHarness.orator.stopService(fDone);
+											});
+									});
+							});
+					}
+				);
+			}
+		);
+
+		suite
+		(
+			'Image Convert Endpoint',
+			() =>
+			{
+				test
+				(
+					'should convert a JPEG to PNG via the convert endpoint',
+					(fDone) =>
+					{
+						createTestJpegBuffer(
+							(pError, pJpegBuffer) =>
+							{
+								Expect(pError).to.equal(null);
+
+								createStartedHarness(null, null,
+									(pHarness) =>
+									{
+										postBinaryToEndpoint(pHarness.port, '/conversion/1.0/image/convert/png', pJpegBuffer,
+											(pPostError, pResponse, pBody) =>
+											{
+												Expect(pPostError).to.equal(null);
+												Expect(pResponse.statusCode).to.equal(200);
+												Expect(pResponse.headers['content-type']).to.equal('image/png');
+
+												// Verify PNG magic bytes
+												Expect(pBody[0]).to.equal(137);
+												Expect(pBody[1]).to.equal(80);
+												Expect(pBody[2]).to.equal(78);
+												Expect(pBody[3]).to.equal(71);
+
+												pHarness.orator.stopService(fDone);
+											});
+									});
+							});
+					}
+				);
+
+				test
+				(
+					'should convert a JPEG to WebP via the convert endpoint',
+					(fDone) =>
+					{
+						createTestJpegBuffer(
+							(pError, pJpegBuffer) =>
+							{
+								Expect(pError).to.equal(null);
+
+								createStartedHarness(null, null,
+									(pHarness) =>
+									{
+										postBinaryToEndpoint(pHarness.port, '/conversion/1.0/image/convert/webp', pJpegBuffer,
+											(pPostError, pResponse, pBody) =>
+											{
+												Expect(pPostError).to.equal(null);
+												Expect(pResponse.statusCode).to.equal(200);
+												Expect(pResponse.headers['content-type']).to.equal('image/webp');
+												Expect(pBody.length).to.be.greaterThan(0);
+
+												pHarness.orator.stopService(fDone);
+											});
+									});
+							});
+					}
+				);
+			}
+		);
+
+		suite
+		(
 			'Custom Converter',
 			() =>
 			{
