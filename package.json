@@ -1,6 +1,6 @@
 {
 	"name": "orator-conversion",
-	"version": "1.0.2",
+	"version": "1.0.3",
 	"description": "File format conversion endpoints for Orator service servers.",
 	"main": "source/Orator-File-Translation.js",
 	"scripts": {
