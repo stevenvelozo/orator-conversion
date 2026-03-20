@@ -45,9 +45,9 @@
 		"sharp": "^0.34.5"
 	},
 	"devDependencies": {
-		"fable": "^3.1.55",
-		"orator": "^6.0.1",
-		"orator-serviceserver-restify": "^2.0.7",
-		"quackage": "^1.0.59"
+		"fable": "^3.1.67",
+		"orator": "^6.0.4",
+		"orator-serviceserver-restify": "^2.0.9",
+		"quackage": "^1.0.65"
 	}
 }
