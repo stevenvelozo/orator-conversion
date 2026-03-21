@@ -6,6 +6,9 @@ const libFS = require('fs');
 const libPath = require('path');
 const libOS = require('os');
 
+const libBeaconService = require('ultravisor-beacon');
+const libOratorConversionBeaconProvider = require('./Orator-Conversion-BeaconProvider.js');
+
 const libEndpointImageJpgToPng = require('./endpoints/Endpoint-Image-JpgToPng.js');
 const libEndpointImagePngToJpg = require('./endpoints/Endpoint-Image-PngToJpg.js');
 const libEndpointImageResize = require('./endpoints/Endpoint-Image-Resize.js');
@@ -77,6 +80,9 @@ class OratorFileTranslation extends libFableServiceProviderBase
 
 		// Array of instantiated endpoint services
 		this._endpointServices = [];
+
+		// Beacon service reference (created on connectBeacon)
+		this._BeaconService = null;
 
 		// Initialize the built-in converters
 		this.initializeDefaultConverters();
@@ -507,6 +513,131 @@ class OratorFileTranslation extends libFableServiceProviderBase
 		}
 
 		return true;
+	}
+
+	/**
+	 * Connect to an Ultravisor coordinator as a beacon, exposing the same
+	 * MediaConversion capabilities available through the HTTP endpoints.
+	 *
+	 * This makes the running orator-conversion server discoverable by
+	 * Ultravisor and allows it to receive work items from the mesh.
+	 *
+	 * @param {object} pBeaconConfig Beacon configuration:
+	 *   - ServerURL {string} Ultravisor server URL (required)
+	 *   - Name {string} Beacon name (default: 'orator-conversion')
+	 *   - Password {string} Auth password (default: '')
+	 *   - MaxConcurrent {number} Max concurrent work items (default: 2)
+	 *   - StagingPath {string} Local staging directory (default: cwd)
+	 *   - Tags {object} Beacon tags (default: {})
+	 * @param {Function} fCallback Called with (pError, pBeaconInfo)
+	 */
+	connectBeacon(pBeaconConfig, fCallback)
+	{
+		if (!pBeaconConfig || !pBeaconConfig.ServerURL)
+		{
+			return fCallback(new Error('connectBeacon requires a ServerURL in the config.'));
+		}
+
+		if (this._BeaconService && this._BeaconService.isEnabled())
+		{
+			this.log.warn('OratorFileTranslation: beacon already connected.');
+			return fCallback(null);
+		}
+
+		// Register the beacon service type with fable if not already present
+		this.fable.addServiceTypeIfNotExists('UltravisorBeacon', libBeaconService);
+
+		// Instantiate the beacon service with the provided config
+		this._BeaconService = this.fable.instantiateServiceProviderWithoutRegistration('UltravisorBeacon',
+			{
+				ServerURL: pBeaconConfig.ServerURL,
+				Name: pBeaconConfig.Name || 'orator-conversion',
+				Password: pBeaconConfig.Password || '',
+				MaxConcurrent: pBeaconConfig.MaxConcurrent || 2,
+				StagingPath: pBeaconConfig.StagingPath || process.cwd(),
+				Tags: pBeaconConfig.Tags || {}
+			});
+
+		// Create the MediaConversion capability provider and register it
+		let tmpProvider = new libOratorConversionBeaconProvider(
+			{
+				PdftkPath: this.PdftkPath,
+				PdftoppmPath: this.PdftoppmPath,
+				FfmpegPath: pBeaconConfig.FfmpegPath || 'ffmpeg',
+				FfprobePath: pBeaconConfig.FfprobePath || 'ffprobe',
+				MaxFileSizeBytes: this.MaxFileSize,
+				LogLevel: this.LogLevel
+			});
+
+		// Initialize the provider (checks tool availability), then register and enable
+		tmpProvider.initialize(
+			(pInitError) =>
+			{
+				if (pInitError)
+				{
+					this.log.error(`OratorFileTranslation: beacon provider init failed: ${pInitError.message}`);
+					this._BeaconService = null;
+					return fCallback(pInitError);
+				}
+
+				// Register the capability with the beacon service
+				this._BeaconService.registerCapability(
+					{
+						Capability: tmpProvider.Capability,
+						Name: tmpProvider.Name,
+						actions: tmpProvider.actions,
+						execute: tmpProvider.execute.bind(tmpProvider),
+						initialize: (fCb) => { return fCb(null); },  // Already initialized above
+						shutdown: (fCb) => { return fCb(null); }
+					});
+
+				// Enable the beacon — authenticate, register, begin polling
+				this._BeaconService.enable(
+					(pEnableError, pBeaconInfo) =>
+					{
+						if (pEnableError)
+						{
+							this.log.error(`OratorFileTranslation: beacon enable failed: ${pEnableError.message}`);
+							this._BeaconService = null;
+							return fCallback(pEnableError);
+						}
+
+						this.log.info(`OratorFileTranslation: beacon connected as ${pBeaconInfo.BeaconID}`);
+						return fCallback(null, pBeaconInfo);
+					});
+			});
+	}
+
+	/**
+	 * Disconnect the beacon from the Ultravisor coordinator.
+	 *
+	 * @param {Function} fCallback Called with (pError)
+	 */
+	disconnectBeacon(fCallback)
+	{
+		if (!this._BeaconService || !this._BeaconService.isEnabled())
+		{
+			if (this.log)
+			{
+				this.log.info('OratorFileTranslation: beacon not connected, nothing to disconnect.');
+			}
+			return fCallback(null);
+		}
+
+		this._BeaconService.disable(
+			(pError) =>
+			{
+				if (pError)
+				{
+					this.log.warn(`OratorFileTranslation: beacon disconnect warning: ${pError.message}`);
+				}
+				else
+				{
+					this.log.info('OratorFileTranslation: beacon disconnected.');
+				}
+				this._BeaconService = null;
+				return fCallback(pError || null);
+			});
 	}
 }
 

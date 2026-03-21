@@ -271,6 +271,28 @@ class OratorConversionBeaconProvider extends libBeaconCapabilityProvider
 		let tmpSettings = pWorkItem.Settings || {};
 		let tmpStagingPath = pContext.StagingPath || process.cwd();
 
+		// Coerce settings types from the action's schema.
+		// Template engines and JSON transport may deliver numbers as strings.
+		let tmpActionDef = this.actions[pAction];
+		if (tmpActionDef && tmpActionDef.SettingsSchema)
+		{
+			for (let i = 0; i < tmpActionDef.SettingsSchema.length; i++)
+			{
+				let tmpField = tmpActionDef.SettingsSchema[i];
+				let tmpVal = tmpSettings[tmpField.Name];
+				if (tmpVal === undefined || tmpVal === null || tmpVal === '') { continue; }
+				if (tmpField.DataType === 'Number' && typeof tmpVal === 'string')
+				{
+					let tmpNum = Number(tmpVal);
+					if (!isNaN(tmpNum)) { tmpSettings[tmpField.Name] = tmpNum; }
+				}
+				else if (tmpField.DataType === 'Boolean' && typeof tmpVal === 'string')
+				{
+					tmpSettings[tmpField.Name] = (tmpVal === 'true' || tmpVal === '1');
+				}
+			}
+		}
+
 		let tmpInputPath = this._resolvePath(tmpSettings.InputFile, tmpStagingPath);
 		let tmpOutputPath = this._resolvePath(tmpSettings.OutputFile, tmpStagingPath);
 
