@@ -94,9 +94,9 @@ class ConversionCore
 	}
 
 	/**
-	 * Resize an image buffer with Sharp.
+	 * Resize an image with Sharp.
 	 *
-	 * @param {Buffer} pInputBuffer - The image data (any format Sharp can read).
+	 * @param {Buffer|string} pInput - Image data (Buffer) or file path (string).
 	 * @param {object} pOptions - Resize options.
 	 * @param {number} [pOptions.Width] - Target width in pixels.
 	 * @param {number} [pOptions.Height] - Target height in pixels.
@@ -107,7 +107,7 @@ class ConversionCore
 	 * @param {string} [pOptions.Position] - Resize position/gravity: 'centre', 'north', 'south', etc.
 	 * @param {Function} fCallback - Called with (pError, pOutputBuffer, pContentType).
 	 */
-	imageResize(pInputBuffer, pOptions, fCallback)
+	imageResize(pInput, pOptions, fCallback)
 	{
 		let tmpOptions = pOptions || {};
 		let tmpFormat = (tmpOptions.Format || 'jpeg').toLowerCase();
@@ -132,7 +132,8 @@ class ConversionCore
 			tmpResizeConfig.position = tmpOptions.Position;
 		}
 
-		let tmpSharpInstance = libSharp(pInputBuffer);
+		// Accept file path or buffer; disable pixel limit for large scans
+		let tmpSharpInstance = libSharp(pInput, { limitInputPixels: false });
 
 		if (tmpAutoOrient)
 		{

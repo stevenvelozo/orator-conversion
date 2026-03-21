@@ -43,7 +43,8 @@
 	"dependencies": {
 		"fable-serviceproviderbase": "^3.0.19",
 		"sharp": "^0.34.5",
-		"ultravisor-beacon": "^0.0.3"
+		"ultravisor-beacon": "^0.0.3",
+		"ws": "^8.20.0"
 	},
 	"devDependencies": {
 		"fable": "^3.1.67",

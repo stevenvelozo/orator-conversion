@@ -268,6 +268,8 @@ class OratorConversionBeaconProvider extends libBeaconCapabilityProvider
 	 */
 	execute(pAction, pWorkItem, pContext, fCallback, fReportProgress)
 	{
+		let tmpLog = pContext && pContext.log ? pContext.log : { info: console.log, warn: console.warn, error: console.error };
+		tmpLog.info(`[OratorConversion] execute: action="${pAction}" workItem=${pWorkItem.WorkItemHash || '?'} settings=${JSON.stringify(pWorkItem.Settings || {}).substring(0, 200)}`);
 		let tmpSettings = pWorkItem.Settings || {};
 		let tmpStagingPath = pContext.StagingPath || process.cwd();
 
@@ -306,14 +308,17 @@ class OratorConversionBeaconProvider extends libBeaconCapabilityProvider
 
 		if (!libFS.existsSync(tmpInputPath))
 		{
+			tmpLog.warn(`[OratorConversion] Input file NOT FOUND: ${tmpInputPath} (settings.InputFile=${tmpSettings.InputFile})`);
 			return fCallback(null, {
 				Outputs: { StdOut: `Input file not found: ${tmpSettings.InputFile}`, ExitCode: -1, Result: '' },
 				Log: [`OratorConversion: input file not found: ${tmpInputPath}`]
 			});
 		}
 
-		// File-path actions (video, audio, probe) skip the buffer read
-		let tmpFilePathActions = { 'MediaProbe': true, 'VideoExtractFrame': true, 'VideoThumbnail': true, 'AudioExtractSegment': true, 'AudioWaveform': true };
+		tmpLog.info(`[OratorConversion] Input file OK: ${tmpInputPath} (${libFS.statSync(tmpInputPath).size} bytes)`);
+
+		// File-path actions skip the buffer read — Sharp and ffmpeg handle files directly
+		let tmpFilePathActions = { 'ImageResize': true, 'ImageConvert': true, 'MediaProbe': true, 'VideoExtractFrame': true, 'VideoThumbnail': true, 'AudioExtractSegment': true, 'AudioWaveform': true };
 		if (tmpFilePathActions[pAction])
 		{
 			return this._executeFilePathAction(pAction, tmpSettings, tmpInputPath, tmpOutputPath, fCallback, fReportProgress);
@@ -347,11 +352,14 @@ class OratorConversionBeaconProvider extends libBeaconCapabilityProvider
 		{
 			if (pError)
 			{
+				tmpLog.error(`[OratorConversion] ${pAction} FAILED: ${pError.message}`);
 				return fCallback(null, {
 					Outputs: { StdOut: `Conversion failed: ${pError.message}`, ExitCode: 1, Result: '' },
 					Log: [`OratorConversion ${pAction} error: ${pError.message}`]
 				});
 			}
+
+			tmpLog.info(`[OratorConversion] ${pAction} SUCCESS: ${pOutputBuffer.length} bytes → ${tmpOutputPath}`);
 
 			try
 			{
@@ -714,6 +722,102 @@ class OratorConversionBeaconProvider extends libBeaconCapabilityProvider
 								ContentType: 'application/json'
 							},
 							Log: [`OratorConversion AudioWaveform: ${pSettings.InputFile} (${pPeaks.length} peaks)`]
+						});
+					});
+				break;
+			}
+
+			case 'ImageResize':
+			{
+				if (fReportProgress) fReportProgress({ Percent: 10, Message: 'Resizing image...' });
+				this._Core.imageResize(pInputPath,
+					{
+						Width: pSettings.Width,
+						Height: pSettings.Height,
+						Format: pSettings.Format,
+						Quality: pSettings.Quality,
+						AutoOrient: pSettings.AutoOrient,
+						Fit: pSettings.Fit,
+						Position: pSettings.Position
+					},
+					(pError, pOutputBuffer, pContentType) =>
+					{
+						if (pError)
+						{
+							return fCallback(null, {
+								Outputs: { StdOut: `Resize failed: ${pError.message}`, ExitCode: 1, Result: '' },
+								Log: [`OratorConversion ImageResize error: ${pError.message}`]
+							});
+						}
+
+						try
+						{
+							libFS.writeFileSync(pOutputPath, pOutputBuffer);
+						}
+						catch (pWriteError)
+						{
+							return fCallback(null, {
+								Outputs: { StdOut: `Write failed: ${pWriteError.message}`, ExitCode: 1, Result: '' },
+								Log: [`OratorConversion ImageResize write error: ${pWriteError.message}`]
+							});
+						}
+
+						return fCallback(null, {
+							Outputs:
+							{
+								StdOut: `Resized ${pSettings.InputFile} → ${pSettings.OutputFile}`,
+								ExitCode: 0,
+								Result: pOutputPath,
+								ContentType: pContentType || '',
+								OutputSize: pOutputBuffer.length
+							},
+							Log: [`OratorConversion ImageResize: ${pSettings.InputFile} → ${pSettings.OutputFile} (${pOutputBuffer.length} bytes)`]
+						});
+					});
+				break;
+			}
+
+			case 'ImageConvert':
+			{
+				if (fReportProgress) fReportProgress({ Percent: 10, Message: 'Converting image...' });
+				this._Core.imageResize(pInputPath,
+					{
+						Format: pSettings.Format,
+						Quality: pSettings.Quality,
+						AutoOrient: pSettings.AutoOrient
+					},
+					(pError, pOutputBuffer, pContentType) =>
+					{
+						if (pError)
+						{
+							return fCallback(null, {
+								Outputs: { StdOut: `Convert failed: ${pError.message}`, ExitCode: 1, Result: '' },
+								Log: [`OratorConversion ImageConvert error: ${pError.message}`]
+							});
+						}
+
+						try
+						{
+							libFS.writeFileSync(pOutputPath, pOutputBuffer);
+						}
+						catch (pWriteError)
+						{
+							return fCallback(null, {
+								Outputs: { StdOut: `Write failed: ${pWriteError.message}`, ExitCode: 1, Result: '' },
+								Log: [`OratorConversion ImageConvert write error: ${pWriteError.message}`]
+							});
+						}
+
+						return fCallback(null, {
+							Outputs:
+							{
+								StdOut: `Converted ${pSettings.InputFile} → ${pSettings.OutputFile}`,
+								ExitCode: 0,
+								Result: pOutputPath,
+								ContentType: pContentType || '',
+								OutputSize: pOutputBuffer.length
+							},
+							Log: [`OratorConversion ImageConvert: ${pSettings.InputFile} → ${pSettings.OutputFile} (${pOutputBuffer.length} bytes)`]
 						});
 					});
 				break;

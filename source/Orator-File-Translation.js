@@ -547,6 +547,19 @@ class OratorFileTranslation extends libFableServiceProviderBase
 		// Register the beacon service type with fable if not already present
 		this.fable.addServiceTypeIfNotExists('UltravisorBeacon', libBeaconService);
 
+		// Default staging path to dist/orator-conversion-staging
+		let tmpStagingPath = pBeaconConfig.StagingPath || require('path').resolve(__dirname, '..', 'dist', 'orator-conversion-staging');
+
+		// Ensure staging directory exists
+		try
+		{
+			require('fs').mkdirSync(tmpStagingPath, { recursive: true });
+		}
+		catch (pMkdirError)
+		{
+			// Already exists — fine
+		}
+
 		// Instantiate the beacon service with the provided config
 		this._BeaconService = this.fable.instantiateServiceProviderWithoutRegistration('UltravisorBeacon',
 			{
@@ -554,8 +567,9 @@ class OratorFileTranslation extends libFableServiceProviderBase
 				Name: pBeaconConfig.Name || 'orator-conversion',
 				Password: pBeaconConfig.Password || '',
 				MaxConcurrent: pBeaconConfig.MaxConcurrent || 2,
-				StagingPath: pBeaconConfig.StagingPath || process.cwd(),
-				Tags: pBeaconConfig.Tags || {}
+				StagingPath: tmpStagingPath,
+				Tags: pBeaconConfig.Tags || {},
+				BindAddresses: pBeaconConfig.BindAddresses || []
 			});
 
 		// Create the MediaConversion capability provider and register it

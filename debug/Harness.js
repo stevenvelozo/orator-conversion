@@ -1,27 +1,9 @@
 const libFable = require('fable');
+const libPath = require('path');
 
-const defaultFableSettings = (
-	{
-		Product: 'Orator-FileTranslation',
-		ProductVersion: '1.0.0',
-		APIServerPort: 8765
-	});
-
-let _Fable = new libFable(defaultFableSettings);
-
-_Fable.serviceManager.addServiceType('OratorServiceServer', require('orator-serviceserver-restify'));
-_Fable.serviceManager.instantiateServiceProvider('OratorServiceServer', {});
-
-_Fable.serviceManager.addServiceType('Orator', require('orator'));
-let _Orator = _Fable.serviceManager.instantiateServiceProvider('Orator', {});
-
-const libOratorFileTranslation = require('../source/Orator-File-Translation.js');
-_Fable.serviceManager.addServiceType('OratorFileTranslation', libOratorFileTranslation);
-_Fable.serviceManager.instantiateServiceProvider('OratorFileTranslation', { LogLevel: 2 });
-
-// Parse --ultravisor / -u URL from command line
-// If flag is given without a URL, defaults to http://localhost:54321
+// Parse command-line flags before creating Fable so LogStreams can be set
 let tmpUltravisorURL = null;
+let tmpLogFilePath = null;
 for (let i = 2; i < process.argv.length; i++)
 {
 	if ((process.argv[i] === '--ultravisor' || process.argv[i] === '-u'))
@@ -35,7 +17,45 @@ for (let i = 2; i < process.argv.length; i++)
 			tmpUltravisorURL = 'http://localhost:54321';
 		}
 	}
+	if (process.argv[i] === '--logfile' || process.argv[i] === '-l')
+	{
+		if (process.argv[i + 1] && !process.argv[i + 1].startsWith('-'))
+		{
+			tmpLogFilePath = libPath.resolve(process.argv[++i]);
+		}
+		else
+		{
+			tmpLogFilePath = libPath.resolve(`orator-conversion-${new Date().toISOString().replace(/[:.]/g, '-')}.log`);
+		}
+	}
 }
+
+let tmpLogStreams = [{ level: 'trace', streamtype: 'process.stdout' }];
+if (tmpLogFilePath)
+{
+	tmpLogStreams.push({ loggertype: 'simpleflatfile', level: 'trace', path: tmpLogFilePath });
+	console.log(`[Orator-Conversion] Logging to file: ${tmpLogFilePath}`);
+}
+
+const defaultFableSettings = (
+	{
+		Product: 'Orator-FileTranslation',
+		ProductVersion: '1.0.0',
+		APIServerPort: 8765,
+		LogStreams: tmpLogStreams
+	});
+
+let _Fable = new libFable(defaultFableSettings);
+
+_Fable.serviceManager.addServiceType('OratorServiceServer', require('orator-serviceserver-restify'));
+_Fable.serviceManager.instantiateServiceProvider('OratorServiceServer', {});
+
+_Fable.serviceManager.addServiceType('Orator', require('orator'));
+let _Orator = _Fable.serviceManager.instantiateServiceProvider('Orator', {});
+
+const libOratorFileTranslation = require('../source/Orator-File-Translation.js');
+_Fable.serviceManager.addServiceType('OratorFileTranslation', libOratorFileTranslation);
+_Fable.serviceManager.instantiateServiceProvider('OratorFileTranslation', { LogLevel: 2 });
 
 let tmpAnticipate = _Fable.newAnticipate();
 
@@ -59,7 +79,8 @@ if (tmpUltravisorURL)
 			_Fable.OratorFileTranslation.connectBeacon(
 				{
 					ServerURL: tmpUltravisorURL,
-					Name: 'orator-conversion'
+					Name: 'orator-conversion',
+					BindAddresses: [{ IP: '127.0.0.1', Port: 8765, Protocol: 'http' }]
 				},
 				(pError) =>
 				{
