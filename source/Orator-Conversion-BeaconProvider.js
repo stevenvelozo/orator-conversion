@@ -46,6 +46,13 @@ class OratorConversionBeaconProvider extends libBeaconCapabilityProvider
 		this.Name = 'OratorConversion';
 		this.Capability = 'MediaConversion';
 
+		this.log = (this._ProviderConfig && this._ProviderConfig.Log) || {
+			trace: (...pArgs) => { console.log(...pArgs); },
+			info: (...pArgs) => { console.log(...pArgs); },
+			warn: (...pArgs) => { console.warn(...pArgs); },
+			error: (...pArgs) => { console.error(...pArgs); }
+		};
+
 		this._Core = new libConversionCore({
 			PdftkPath: this._ProviderConfig.PdftkPath || 'pdftk',
 			PdftoppmPath: this._ProviderConfig.PdftoppmPath || 'pdftoppm',
@@ -233,27 +240,27 @@ class OratorConversionBeaconProvider extends libBeaconCapabilityProvider
 				return fCallback(new Error(`OratorConversion provider requires Sharp: ${pSharpError.message}`));
 			}
 			this._SharpAvailable = true;
-			console.log(`  [OratorConversion] Sharp: available`);
+			this.log.info(`  [OratorConversion] Sharp: available`);
 
 			this._Core.checkPdftoppm((pPdftoppmError, pPdftoppmAvailable) =>
 			{
 				this._PdftoppmAvailable = !pPdftoppmError;
-				console.log(`  [OratorConversion] pdftoppm: ${this._PdftoppmAvailable ? 'available' : 'not found (PDF actions disabled)'}`);
+				this.log.info(`  [OratorConversion] pdftoppm: ${this._PdftoppmAvailable ? 'available' : 'not found (PDF actions disabled)'}`);
 
 				this._Core.checkPdftk((pPdftkError, pPdftkAvailable) =>
 				{
 					this._PdftkAvailable = !pPdftkError;
-					console.log(`  [OratorConversion] pdftk: ${this._PdftkAvailable ? 'available' : 'not found (PDF extraction disabled)'}`);
+					this.log.info(`  [OratorConversion] pdftk: ${this._PdftkAvailable ? 'available' : 'not found (PDF extraction disabled)'}`);
 
 					this._Core.checkFfmpeg((pFfmpegError, pFfmpegAvailable) =>
 					{
 						this._FfmpegAvailable = !pFfmpegError;
-						console.log(`  [OratorConversion] ffmpeg: ${this._FfmpegAvailable ? 'available' : 'not found (video/audio actions disabled)'}`);
+						this.log.info(`  [OratorConversion] ffmpeg: ${this._FfmpegAvailable ? 'available' : 'not found (video/audio actions disabled)'}`);
 
 						this._Core.checkFfprobe((pFfprobeError, pFfprobeAvailable) =>
 						{
 							this._FfprobeAvailable = !pFfprobeError;
-							console.log(`  [OratorConversion] ffprobe: ${this._FfprobeAvailable ? 'available' : 'not found (media probe disabled)'}`);
+							this.log.info(`  [OratorConversion] ffprobe: ${this._FfprobeAvailable ? 'available' : 'not found (media probe disabled)'}`);
 
 							return fCallback(null);
 						});
@@ -268,7 +275,7 @@ class OratorConversionBeaconProvider extends libBeaconCapabilityProvider
 	 */
 	execute(pAction, pWorkItem, pContext, fCallback, fReportProgress)
 	{
-		let tmpLog = pContext && pContext.log ? pContext.log : { info: console.log, warn: console.warn, error: console.error };
+		let tmpLog = pContext && pContext.log ? pContext.log : this.log;
 		tmpLog.info(`[OratorConversion] execute: action="${pAction}" workItem=${pWorkItem.WorkItemHash || '?'} settings=${JSON.stringify(pWorkItem.Settings || {}).substring(0, 200)}`);
 		let tmpSettings = pWorkItem.Settings || {};
 		let tmpStagingPath = pContext.StagingPath || process.cwd();
