@@ -529,6 +529,10 @@ class OratorFileTranslation extends libFableServiceProviderBase
 	 *   - MaxConcurrent {number} Max concurrent work items (default: 2)
 	 *   - StagingPath {string} Local staging directory (default: cwd)
 	 *   - Tags {object} Beacon tags (default: {})
+	 *   - HostID {string} Override for the host identity (default: os.hostname())
+	 *   - SharedMounts {Array<{MountID, Root}>} Shared filesystem mounts to advertise
+	 *     so the reachability matrix can detect zero-copy paths between this
+	 *     beacon and other beacons on the same host
 	 * @param {Function} fCallback Called with (pError, pBeaconInfo)
 	 */
 	connectBeacon(pBeaconConfig, fCallback)
@@ -560,8 +564,10 @@ class OratorFileTranslation extends libFableServiceProviderBase
 			// Already exists — fine
 		}
 
-		// Instantiate the beacon service with the provided config
-		this._BeaconService = this.fable.instantiateServiceProviderWithoutRegistration('UltravisorBeacon',
+		// Build the beacon service options. SharedMounts is forwarded as-is so
+		// the caller controls which mounts get advertised — and matches the
+		// MountID computation done by other beacons on the same host.
+		let tmpBeaconOptions =
 			{
 				ServerURL: pBeaconConfig.ServerURL,
 				Name: pBeaconConfig.Name || 'orator-conversion',
@@ -570,7 +576,18 @@ class OratorFileTranslation extends libFableServiceProviderBase
 				StagingPath: tmpStagingPath,
 				Tags: pBeaconConfig.Tags || {},
 				BindAddresses: pBeaconConfig.BindAddresses || []
-			});
+			};
+		if (pBeaconConfig.HostID)
+		{
+			tmpBeaconOptions.HostID = pBeaconConfig.HostID;
+		}
+		if (Array.isArray(pBeaconConfig.SharedMounts) && pBeaconConfig.SharedMounts.length > 0)
+		{
+			tmpBeaconOptions.SharedMounts = pBeaconConfig.SharedMounts;
+		}
+
+		// Instantiate the beacon service with the provided config
+		this._BeaconService = this.fable.instantiateServiceProviderWithoutRegistration('UltravisorBeacon', tmpBeaconOptions);
 
 		// Create the MediaConversion capability provider and register it
 		let tmpProvider = new libOratorConversionBeaconProvider(
