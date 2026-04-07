@@ -192,6 +192,18 @@ class OratorConversionBeaconProvider extends libBeaconCapabilityProvider
 					{ Name: 'Height', DataType: 'Number', Required: false, Description: 'Scale height (width auto)' }
 				]
 			},
+			'VideoExtractFrames':
+			{
+				Description: 'Extract MULTIPLE frames from a video file in a single work item. Each frame spec includes a timestamp and an output filename. All frames are written to the same OutputDir, which must be writable from this beacon (typically via shared filesystem with the dispatcher). Returns a JSON manifest with per-frame results.',
+				SettingsSchema:
+				[
+					{ Name: 'InputFile', DataType: 'String', Required: true, Description: 'Path to input video file' },
+					{ Name: 'OutputDir', DataType: 'String', Required: true, Description: 'Absolute directory where frames should be written. Must be writable from this beacon.' },
+					{ Name: 'Frames', DataType: 'String', Required: true, Description: 'JSON-encoded array of {Timestamp, Filename} pairs, e.g. [{"Timestamp":"00:00:05","Filename":"frame_0000.jpg"}, ...]' },
+					{ Name: 'Width', DataType: 'Number', Required: false, Description: 'Scale width applied to every frame' },
+					{ Name: 'Height', DataType: 'Number', Required: false, Description: 'Scale height applied to every frame' }
+				]
+			},
 			'VideoThumbnail':
 			{
 				Description: 'Generate a thumbnail from a video file.',
@@ -325,7 +337,7 @@ class OratorConversionBeaconProvider extends libBeaconCapabilityProvider
 		tmpLog.info(`[OratorConversion] Input file OK: ${tmpInputPath} (${libFS.statSync(tmpInputPath).size} bytes)`);
 
 		// File-path actions skip the buffer read — Sharp and ffmpeg handle files directly
-		let tmpFilePathActions = { 'ImageResize': true, 'ImageConvert': true, 'MediaProbe': true, 'VideoExtractFrame': true, 'VideoThumbnail': true, 'AudioExtractSegment': true, 'AudioWaveform': true };
+		let tmpFilePathActions = { 'ImageResize': true, 'ImageConvert': true, 'MediaProbe': true, 'VideoExtractFrame': true, 'VideoExtractFrames': true, 'VideoThumbnail': true, 'AudioExtractSegment': true, 'AudioWaveform': true };
 		if (tmpFilePathActions[pAction])
 		{
 			return this._executeFilePathAction(pAction, tmpSettings, tmpInputPath, tmpOutputPath, fCallback, fReportProgress);
@@ -600,6 +612,144 @@ class OratorConversionBeaconProvider extends libBeaconCapabilityProvider
 								OutputSize: tmpOutputSize
 							},
 							Log: [`OratorConversion VideoExtractFrame: ${pSettings.InputFile} → ${pSettings.OutputFile} (${tmpOutputSize} bytes)`]
+						});
+					});
+				break;
+			}
+
+			case 'VideoExtractFrames':
+			{
+				// Batch frame extraction. Reads InputFile once, extracts N frames
+				// to OutputDir, returns a JSON manifest. Used by the video explorer
+				// to avoid 20 separate work-item dispatches per video.
+				if (!this._FfmpegAvailable)
+				{
+					return fCallback(null, {
+						Outputs: { StdOut: 'ffmpeg not available on this beacon.', ExitCode: -1, Result: '' },
+						Log: ['OratorConversion: ffmpeg required for VideoExtractFrames but not found.']
+					});
+				}
+
+				let tmpOutputDir = pSettings.OutputDir;
+				if (!tmpOutputDir)
+				{
+					return fCallback(null, {
+						Outputs: { StdOut: 'No OutputDir specified.', ExitCode: -1, Result: '' },
+						Log: ['OratorConversion VideoExtractFrames: OutputDir is required.']
+					});
+				}
+
+				let tmpFrameSpecs;
+				try
+				{
+					tmpFrameSpecs = JSON.parse(pSettings.Frames || '[]');
+				}
+				catch (pParseError)
+				{
+					return fCallback(null, {
+						Outputs: { StdOut: `Invalid Frames JSON: ${pParseError.message}`, ExitCode: -1, Result: '' },
+						Log: [`OratorConversion VideoExtractFrames: failed to parse Frames JSON: ${pParseError.message}`]
+					});
+				}
+
+				if (!Array.isArray(tmpFrameSpecs) || tmpFrameSpecs.length === 0)
+				{
+					return fCallback(null, {
+						Outputs: { StdOut: 'Frames array is empty.', ExitCode: -1, Result: '' },
+						Log: ['OratorConversion VideoExtractFrames: Frames must be a non-empty array.']
+					});
+				}
+
+				// Ensure OutputDir exists. With shared-fs the dispatcher already
+				// created it; mkdir -p is a no-op in that case but needed when
+				// the dispatcher is on a different host.
+				try
+				{
+					libFS.mkdirSync(tmpOutputDir, { recursive: true });
+				}
+				catch (pMkdirError)
+				{
+					return fCallback(null, {
+						Outputs: { StdOut: `Could not create OutputDir: ${pMkdirError.message}`, ExitCode: -1, Result: '' },
+						Log: [`OratorConversion VideoExtractFrames: mkdir failed for ${tmpOutputDir}: ${pMkdirError.message}`]
+					});
+				}
+
+				// Resolve absolute output paths from { Timestamp, Filename } pairs
+				let tmpResolvedSpecs = [];
+				for (let i = 0; i < tmpFrameSpecs.length; i++)
+				{
+					let tmpEntry = tmpFrameSpecs[i];
+					if (!tmpEntry || !tmpEntry.Timestamp || !tmpEntry.Filename)
+					{
+						tmpResolvedSpecs.push(tmpEntry);
+						continue;
+					}
+					// Reject filenames with path separators or traversal — the
+					// caller is meant to give us flat names like frame_0000.jpg
+					if (tmpEntry.Filename.indexOf('/') !== -1 ||
+						tmpEntry.Filename.indexOf('\\') !== -1 ||
+						tmpEntry.Filename.indexOf('..') !== -1)
+					{
+						return fCallback(null, {
+							Outputs: { StdOut: `Invalid filename in Frames: ${tmpEntry.Filename}`, ExitCode: -1, Result: '' },
+							Log: [`OratorConversion VideoExtractFrames: refusing filename with path separators: ${tmpEntry.Filename}`]
+						});
+					}
+					tmpResolvedSpecs.push(
+						{
+							Timestamp: tmpEntry.Timestamp,
+							OutputPath: libPath.join(tmpOutputDir, tmpEntry.Filename)
+						});
+				}
+
+				if (fReportProgress) fReportProgress({ Percent: 5, Message: `Extracting ${tmpResolvedSpecs.length} frames...` });
+
+				this._Core.videoExtractFramesBatch(pInputPath, tmpResolvedSpecs,
+					{
+						Width: pSettings.Width,
+						Height: pSettings.Height
+					},
+					(pError, pBatchResult) =>
+					{
+						if (pError)
+						{
+							return fCallback(null, {
+								Outputs: { StdOut: `Batch frame extraction failed: ${pError.message}`, ExitCode: 1, Result: '' },
+								Log: [`OratorConversion VideoExtractFrames error: ${pError.message}`]
+							});
+						}
+
+						// Re-attach the original Filename field to each result so
+						// the dispatcher can correlate against its own naming.
+						let tmpFrames = pBatchResult.Frames || [];
+						for (let i = 0; i < tmpFrames.length; i++)
+						{
+							let tmpOriginal = tmpFrameSpecs[i];
+							if (tmpOriginal && tmpOriginal.Filename)
+							{
+								tmpFrames[i].Filename = tmpOriginal.Filename;
+							}
+						}
+
+						let tmpSuccessCount = tmpFrames.filter((f) => f.Success).length;
+						let tmpManifest =
+							{
+								FrameCount: tmpFrames.length,
+								SuccessCount: tmpSuccessCount,
+								OutputDir: tmpOutputDir,
+								Frames: tmpFrames
+							};
+
+						return fCallback(null, {
+							Outputs:
+							{
+								StdOut: `Extracted ${tmpSuccessCount}/${tmpFrames.length} frames from ${pSettings.InputFile} → ${tmpOutputDir}`,
+								ExitCode: tmpSuccessCount === tmpFrames.length ? 0 : 1,
+								Result: JSON.stringify(tmpManifest),
+								ContentType: 'application/json'
+							},
+							Log: [`OratorConversion VideoExtractFrames: ${tmpSuccessCount}/${tmpFrames.length} frames written to ${tmpOutputDir}`]
 						});
 					});
 				break;

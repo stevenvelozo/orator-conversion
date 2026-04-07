@@ -768,6 +768,116 @@ class ConversionCore
 	}
 
 	/**
+	 * Extract MULTIPLE frames from a video file in a single work item.
+	 *
+	 * This is the batch counterpart to videoExtractFrame. It exists so the
+	 * dispatcher can request all N frames the video explorer wants in one
+	 * trip — instead of triggering an entire operation graph 20 times — which
+	 * means one address resolve, one file-transfer / shared-fs check, one
+	 * probe (optional), and one ffmpeg invocation per frame all served from
+	 * the same on-disk file.
+	 *
+	 * Each frame extraction is a separate ffmpeg call internally because
+	 * ffmpeg's `-ss` before `-i` is fast (uses container index), and chaining
+	 * `select=eq(t,X)+eq(t,Y)+...` filters is brittle and produces wrong-sized
+	 * outputs for variable-bitrate streams. Sequential single-frame extracts
+	 * give us the same correctness as videoExtractFrame, just amortized.
+	 *
+	 * @param {string} pInputPath - Path to the input video file.
+	 * @param {Array}  pFrameSpecs - Frame specs:
+	 *   [
+	 *     { Timestamp: '00:00:05.000', OutputPath: '/abs/path/frame_0000.jpg' },
+	 *     { Timestamp: '00:00:10.000', OutputPath: '/abs/path/frame_0001.jpg' },
+	 *     ...
+	 *   ]
+	 * @param {object} pOptions - Shared extract options applied to every frame:
+	 *   { Width, Height }
+	 * @param {Function} fCallback - Called with (pError, pResult) where
+	 *   pResult is { Frames: [{ Index, Timestamp, OutputPath, Size, Success, Error? }, ...] }
+	 */
+	videoExtractFramesBatch(pInputPath, pFrameSpecs, pOptions, fCallback)
+	{
+		let tmpSelf = this;
+
+		if (!Array.isArray(pFrameSpecs) || pFrameSpecs.length === 0)
+		{
+			return fCallback(new Error('videoExtractFramesBatch: Frames array is required and must be non-empty.'));
+		}
+
+		// Quick existence check on the input video — fail fast rather than per-frame
+		if (!libFS.existsSync(pInputPath))
+		{
+			return fCallback(new Error(`videoExtractFramesBatch: input video not found: ${pInputPath}`));
+		}
+
+		let tmpResults = [];
+		let tmpIndex = 0;
+
+		let _extractNext = () =>
+		{
+			if (tmpIndex >= pFrameSpecs.length)
+			{
+				return fCallback(null, { Frames: tmpResults });
+			}
+
+			let tmpI = tmpIndex;
+			let tmpSpec = pFrameSpecs[tmpI];
+			tmpIndex++;
+
+			if (!tmpSpec || !tmpSpec.OutputPath || !tmpSpec.Timestamp)
+			{
+				tmpResults.push(
+					{
+						Index: tmpI,
+						Timestamp: tmpSpec ? tmpSpec.Timestamp : null,
+						OutputPath: tmpSpec ? tmpSpec.OutputPath : null,
+						Size: 0,
+						Success: false,
+						Error: 'Missing Timestamp or OutputPath'
+					});
+				return _extractNext();
+			}
+
+			tmpSelf.videoExtractFrame(pInputPath, tmpSpec.OutputPath,
+				{
+					Timestamp: tmpSpec.Timestamp,
+					Width: pOptions ? pOptions.Width : undefined,
+					Height: pOptions ? pOptions.Height : undefined
+				},
+				(pError, pResultPath) =>
+				{
+					if (pError)
+					{
+						tmpResults.push(
+							{
+								Index: tmpI,
+								Timestamp: tmpSpec.Timestamp,
+								OutputPath: tmpSpec.OutputPath,
+								Size: 0,
+								Success: false,
+								Error: pError.message
+							});
+						return _extractNext();
+					}
+
+					let tmpSize = 0;
+					try { tmpSize = libFS.statSync(pResultPath).size; } catch (pIgnore) { /* ignore */ }
+					tmpResults.push(
+						{
+							Index: tmpI,
+							Timestamp: tmpSpec.Timestamp,
+							OutputPath: pResultPath,
+							Size: tmpSize,
+							Success: true
+						});
+					return _extractNext();
+				});
+		};
+
+		_extractNext();
+	}
+
+	/**
 	 * Generate a thumbnail from a video file.
 	 *
 	 * Convenience wrapper around videoExtractFrame with sensible defaults.
