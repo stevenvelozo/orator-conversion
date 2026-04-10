@@ -50,6 +50,7 @@
 		"fable": "^3.1.67",
 		"orator": "^6.0.4",
 		"orator-serviceserver-restify": "^2.0.10",
+		"pict-docuserve": "^0.1.5",
 		"quackage": "^1.1.0"
 	}
 }
