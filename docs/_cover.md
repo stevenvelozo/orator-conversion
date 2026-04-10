@@ -1,4 +1,4 @@
-# Orator File Translation <small>1</small>
+# Orator File Translation
 
 > File format conversion endpoints for Orator service servers
 
