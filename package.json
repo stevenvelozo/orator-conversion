@@ -1,6 +1,6 @@
 {
 	"name": "orator-conversion",
-	"version": "1.0.9",
+	"version": "1.0.10",
 	"description": "File format conversion endpoints for Orator service servers.",
 	"main": "source/Orator-File-Translation.js",
 	"scripts": {
@@ -40,6 +40,53 @@
 		"url": "https://github.com/stevenvelozo/orator-conversion/issues"
 	},
 	"homepage": "https://github.com/stevenvelozo/orator-conversion#readme",
+	"retoldBeacon": {
+		"displayName": "Orator Media Conversion",
+		"description": "Image/PDF/video/audio conversion actions exposed as an ultravisor-beacon capability.",
+		"category": "media",
+		"mode": "capability-provider",
+		"providerPath": "./source/Orator-Conversion-BeaconProvider.js",
+		"capability": "MediaConversion",
+		"healthCheck": {
+			"path": "/"
+		},
+		"defaultPort": 54500,
+		"requiresUltravisor": true,
+		"configForm": {
+			"Fields": [
+				{
+					"Name": "PdftkPath",
+					"Label": "pdftk binary",
+					"Type": "text",
+					"Default": "pdftk"
+				},
+				{
+					"Name": "PdftoppmPath",
+					"Label": "pdftoppm binary",
+					"Type": "text",
+					"Default": "pdftoppm"
+				},
+				{
+					"Name": "FfmpegPath",
+					"Label": "ffmpeg binary",
+					"Type": "text",
+					"Default": "ffmpeg"
+				},
+				{
+					"Name": "FfprobePath",
+					"Label": "ffprobe binary",
+					"Type": "text",
+					"Default": "ffprobe"
+				},
+				{
+					"Name": "MaxFileSizeBytes",
+					"Label": "Max input file size",
+					"Type": "number",
+					"Default": 104857600
+				}
+			]
+		}
+	},
 	"dependencies": {
 		"fable-serviceproviderbase": "^3.0.19",
 		"sharp": "^0.34.5",
