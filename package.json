@@ -1,6 +1,6 @@
 {
 	"name": "orator-conversion",
-	"version": "1.0.10",
+	"version": "1.0.11",
 	"description": "File format conversion endpoints for Orator service servers.",
 	"main": "source/Orator-File-Translation.js",
 	"scripts": {
@@ -85,6 +85,14 @@
 					"Default": 104857600
 				}
 			]
+		},
+		"docker": {
+			"image": "retold-beacon-host-orator-conversion",
+			"dockerfile": "retold-beacon-host-orator-conversion.Dockerfile",
+			"dataMountPath": "/app/data",
+			"configMountPath": "/app/data/config.json",
+			"exposedPort": 54500,
+			"hostPackage": "retold-beacon-host"
 		}
 	},
 	"dependencies": {
