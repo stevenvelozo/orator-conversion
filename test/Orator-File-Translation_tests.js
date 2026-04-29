@@ -16,7 +16,7 @@ const libOrator = require('orator');
 const libOratorServiceServerRestify = require('orator-serviceserver-restify');
 const libOratorFileTranslation = require('../source/Orator-File-Translation.js');
 
-const libSharp = require('sharp');
+const libSharp = require('retold-sharp');
 
 const defaultFableSettings = (
 	{

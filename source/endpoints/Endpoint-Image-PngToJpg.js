@@ -1,6 +1,6 @@
 const libFableServiceProviderBase = require('fable-serviceproviderbase');
 
-const libSharp = require('sharp');
+const libSharp = require('retold-sharp');
 
 class EndpointImagePngToJpg extends libFableServiceProviderBase
 {

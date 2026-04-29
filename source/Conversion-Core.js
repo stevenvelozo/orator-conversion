@@ -14,7 +14,7 @@
  *   - Audio segment extraction and waveform generation via ffmpeg
  */
 
-const libSharp = require('sharp');
+const libSharp = require('retold-sharp');
 const libChildProcess = require('child_process');
 const libFS = require('fs');
 const libPath = require('path');

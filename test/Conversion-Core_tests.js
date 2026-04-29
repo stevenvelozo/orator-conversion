@@ -9,7 +9,7 @@
 const Chai = require("chai");
 const Expect = Chai.expect;
 
-const libSharp = require('sharp');
+const libSharp = require('retold-sharp');
 
 const libConversionCore = require('../source/Conversion-Core.js');
 
