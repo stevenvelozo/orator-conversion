@@ -97,15 +97,15 @@
 	},
 	"dependencies": {
 		"fable-serviceproviderbase": "^3.0.19",
-		"retold-sharp": "^0.0.2",
-		"ultravisor-beacon": "^0.0.13",
+		"retold-sharp": "^0.0.3",
+		"ultravisor-beacon": "^0.0.15",
 		"ws": "^8.20.0"
 	},
 	"devDependencies": {
-		"fable": "^3.1.71",
-		"orator": "^6.1.0",
-		"orator-serviceserver-restify": "^2.0.10",
+		"fable": "^3.1.72",
+		"orator": "^6.1.2",
+		"orator-serviceserver-restify": "^2.0.11",
 		"pict-docuserve": "^0.1.5",
-		"quackage": "^1.1.3"
+		"quackage": "^1.2.3"
 	}
 }
